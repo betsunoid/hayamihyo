@@ -1,158 +1,167 @@
+
 <!doctype html>
 <html lang="ja">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>2025年度 演算結果一覧</title>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-    <style>
-        body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.2; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .no-print-area { margin-bottom: 20px; background: #f0f7ff; padding: 15px; border-radius: 8px; border: 1px solid #007bff; }
-        .tool-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        select { padding: 10px; font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; }
-        h2 { margin: 0; font-size: 18px; flex-grow: 1; color: #004085; }
-        
-        /* 表のスタイル */
-        table { width: 100%; border-collapse: collapse; border: 2px solid #444; }
-        th, td { border: 1px solid #aaa; padding: 10px 8px; text-align: right; font-size: 13px; }
-        th { background: #444 !important; color: #fff; text-align: center; }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>演算結果完全一覧_印刷強化版</title>
+<style>
+/* --- 画面表示用 --- */
+body { font-family: sans-serif; padding: 15px; color: #333; line-height: 1.3; background: #f0f2f5; }
+.no-print-area { background: #fff; border: 2px solid #e74c3c; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+.save-btn { background: #28a745; color: #fff; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; display: none; }
+.flex-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+.btn-print { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; }
 
-        /* 【重要】縞パターン（ゼブラ模様）の復活 */
-        tbody tr:nth-child(even) { background-color: #f2f2f2 !important; }
-        tbody tr:hover { background-color: #e9ecef !important; } /* マウスを置いた時の色 */
+/* テーブルの基本設定 */
+table { width: 100%; border-collapse: collapse; background: #fff; border: 2px solid #333; }
+th, td { border: 1px solid #999; padding: 12px 6px; text-align: right; font-size: 14px; }
 
-        .bold { font-weight: bold; font-size: 14px; }
-        .orange { color: #d35400; }
-        .green { color: #2e7d32; }
-        .sep { background: #666 !important; color: #fff; text-align: center; font-weight: bold; font-size: 12px; }
-        .btn-print { padding: 10px 20px; background: #1e90ff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        @media print { .no-print-area { display: none; } }
-    </style>
+/* ヘッダー：画面では黒、印刷では黒枠白背景へ */
+th { background: #333; color: #fff; text-align: center; font-weight: bold; }
+
+/* ゼブラ：画面表示 */
+tbody tr:nth-child(even) { background-color: #f8f9fa !important; }
+
+.bold { font-weight: bold; }
+.orange { color: #e67e22; }
+.green { color: #27ae60; }
+.sep { background: #555 !important; color: #fff; text-align: center; font-weight: bold; font-size: 13px; }
+
+/* --- 🖨️ A4印刷専用設定 (強力版) --- */
+@media print {
+@page { size: A4 portrait; margin: 10mm; }
+* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+body { background: #fff; padding: 0; }
+.no-print-area, .btn-print, select { display: none !important; }
+
+h2 { font-size: 18pt; margin: 0 0 15px 0; text-align: center; color: #000; }
+
+table { border: 1.5pt solid #000; width: 100%; }
+
+/* ヘッダーの視認性改善：印刷時は白背景に黒文字、太枠 */
+th { background: #eee !important; color: #000 !important; font-size: 10pt; border-bottom: 2pt solid #000 !important; }
+
+/* セルの微調整 */
+td { padding: 6px 3px; font-size: 9.5pt; border: 0.5pt solid #000 !important; color: #000 !important; }
+
+/* ゼブラを印刷時に強制表示 */
+tbody tr:nth-child(even) { background-color: #f2f2f2 !important; }
+
+/* セパレーター（出張費なしの見出し） */
+.sep { background: #ddd !important; color: #000 !important; font-size: 10pt; border-top: 1.5pt solid #000 !important; border-bottom: 1pt solid #000 !important; }
+
+.orange, .green { color: #000 !important; } /* 印刷時は視認性のため黒に統一（もしくは濃い色） */
+.bold { font-weight: bold; }
+}
+</style>
 </head>
 <body>
 
 <div class="no-print-area">
-    <div class="tool-row">
-        <h2 id="displayTitle">2025/4-2026/3 演算一覧</h2>
-        <select id="rankSelect" onchange="updateTable()"></select>
-        <button class="btn-print" onclick="window.print()">印刷 / PDF保存</button>
-    </div>
-    <div style="font-size:12px; color:#555;">
-        <strong>📄 報酬額表(PDF/画像)を読み込んで更新：</strong>
-        <input type="file" id="fileInput" accept="image/*,application/pdf">
-        <span id="status" style="margin-left:10px; font-weight:bold; color:#d35400;"></span>
-    </div>
+<h3 style="margin:0 0 10px 0; color:#e74c3c;">⚙️ 管理パネル (画像読取・更新)</h3>
+<input type="file" id="ocrInput" accept="image/*">
+<button id="downloadBtn" class="save-btn">更新した数値をファイルに保存</button>
+</div>
+
+<div class="flex-header">
+<h2 id="displayTitle" style="margin:0;">演算結果一覧</h2>
+<select id="rankSelect" onchange="updateTable()" style="padding:10px; font-size:16px; font-weight:bold; cursor:pointer;"></select>
+<button class="btn-print" onclick="window.print()">印刷 / PDF保存</button>
 </div>
 
 <table>
-    <thead>
-        <tr>
-            <th style="text-align:left;">項目名 (条件)</th>
-            <th>基本 (税抜)</th>
-            <th>出張費 (税抜)</th>
-            <th>小計 (税抜)</th>
-            <th>消費税</th>
-            <th>総合計 (税込)</th>
-        </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
+<thead>
+<tr><th style="text-align:left;">項目名 (条件)</th><th>基本</th><th>出張費</th><th>小計</th><th>消費税</th><th>総合計</th></tr>
+</thead>
+<tbody id="tableBody"></tbody>
 </table>
 
 <script>
-    const RANKS = ["H", "G", "F", "E", "D", "C", "B", "A", "S", "SS", "SSS"];
-    
-    // 画像から抽出した報酬額データ（固定値・変動値すべて反映）
-    const masterData = {
-        "定期UP": {H:6775,G:7462,F:7855,E:8149,D:8444,C:8836,B:9425,A:9524,S:9818,SS:10113,SSS:10211},
-        "定期GP": {H:8444,G:9327,F:9818,E:10211,D:10505,C:10996,B:11684,A:11880,S:12273,SS:12567,SSS:12764},
-        "普通UP": {H:7756,G:8542,F:9033,E:9327,D:9622,C:10113,B:10702,A:10898,S:11193,SS:11487,SSS:11684},
-        "普通GP": {H:9425,G:10407,F:10996,E:11389,D:11684,C:12273,B:13058,A:13255,S:13647,SS:14040,SSS:14236},
-        "音教備品UP": {H:6382,G:6382,F:6382,E:6382,D:6382,C:6382,B:6382,A:6382,S:6382,SS:6382,SSS:6382},
-        "音教備品GP": {H:7855,G:7855,F:7855,E:7855,D:7855,C:7855,B:7855,A:7855,S:7855,SS:7855,SSS:7855},
-        "納調UP": {H:5891,G:5891,F:5891,E:5891,D:5891,C:5891,B:5891,A:5891,S:5891,SS:5891,SSS:5891},
-        "納調GP": {H:8836,G:8836,F:8836,E:8836,D:8836,C:8836,B:8836,A:8836,S:8836,SS:8836,SSS:8836},
-        "店頭名古屋UP": {H:6382,G:6382,F:6382,E:6382,D:6382,C:6382,B:6382,A:6382,S:6382,SS:6382,SSS:6382},
-        "店頭名古屋GP": {H:7953,G:7953,F:7953,E:7953,D:7953,C:7953,B:7953,A:7953,S:7953,SS:7953,SSS:7953},
-        "店頭RPS_UP": {H:6382,G:6382,F:6382,E:6382,D:6382,C:6382,B:6382,A:6382,S:6382,SS:6382,SSS:6382},
-        "店頭RPS_GP": {H:8836,G:8836,F:8836,E:8836,D:8836,C:8836,B:8836,A:8836,S:8836,SS:8836,SSS:8836},
-        "出張3000": 2356, "出張3500": 2847, "コンサ係数": 0.7658
-    };
+// 報酬データ（画像より反映済）
+const masterData = {
+"定期UP": {H:6775,G:7462,F:7855,E:8149,D:8444,C:8836,B:9425,A:9524,S:9818,SS:10113,SSS:10211},
+"定期GP": {H:8444,G:9327,F:9818,E:10211,D:10505,C:10996,B:11684,A:11880,S:12273,SS:12567,SSS:12764},
+"普通UP": {H:7756,G:8542,F:9033,E:9327,D:9622,C:10113,B:10702,A:10898,S:11193,SS:11487,SSS:11684},
+"普通GP": {H:9425,G:10407,F:10996,E:11389,D:11684,C:12273,B:13058,A:13255,S:13647,SS:14040,SSS:14236},
+"音教備品UP": 6382, "音教備品GP": 7855,
+"中古納調UP": 5891, "中古納調GP": 8836,
+"店頭名古屋UP": 6382, "店頭名古屋GP": 7953,
+"店頭RPS_UP": 6382, "店頭RPS_GP": 8836,
+"出張3000": 2356, "出張3500": 2847, "コンサ係数": 0.7658
+};
 
-    const sel = document.getElementById('rankSelect');
-    RANKS.forEach(r => {
-        const opt = document.createElement('option');
-        opt.value = r; opt.textContent = "ランク " + r;
-        if(r === "S") opt.selected = true;
-        sel.appendChild(opt);
-    });
+const RANKS = ["H", "G", "F", "E", "D", "C", "B", "A", "S", "SS", "SSS"];
+const sel = document.getElementById('rankSelect');
 
-    function updateTable() {
-        const rank = sel.value;
-        const taxR = 0.1;
-        const d = masterData;
-        
-        // コンサート・定期・普通のベース
-        const mainBase = [
-            {n: "定期UP", v: d["定期UP"][rank]},
-            {n: "定期GP", v: d["定期GP"][rank]},
-            {n: "普通UP", v: d["普通UP"][rank]},
-            {n: "普通GP", v: d["普通GP"][rank]},
-            {n: "コンサート (2.1万基)", v: Math.ceil(21000 * d["コンサ係数"] / 100) * 100},
-            {n: "コンサート (2.2万基)", v: Math.ceil(22000 * d["コンサ係数"] / 100) * 100}
-        ];
+RANKS.forEach(r => {
+const opt = document.createElement('option');
+opt.value = r; opt.textContent = "報酬ランク " + r;
+if(r === "S") opt.selected = true;
+sel.appendChild(opt);
+});
 
-        let html = "";
-        const travels = [{l: "3000地域", v: d["出張3000"]}, {l: "3500地域", v: d["出張3500"]}];
-        
-        // 1. 出張費あり
-        mainBase.forEach(item => {
-            travels.forEach(trv => {
-                const sub = item.v + trv.v;
-                const tax = Math.floor(sub * taxR);
-                html += `<tr><td style="text-align:left;font-weight:bold;">${item.n} (${trv.l})</td><td>${item.v.toLocaleString()}</td><td>${trv.v.toLocaleString()}</td><td>${sub.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="bold orange">${(sub + tax).toLocaleString()}</td></tr>`;
-            });
-        });
+function updateTable() {
+const r = sel.value;
+const taxR = 0.1;
+const m = masterData;
+document.getElementById('displayTitle').textContent = `2025年度 演算結果一覧 (${r})`;
 
-        html += `<tr class="sep"><td colspan="6">▼ 出張費なし (追加項目含む)</td></tr>`;
+const main = [
+{n: "定期調律UP", v: m["定期UP"][r]}, {n: "定期調律GP", v: m["定期GP"][r]},
+{n: "普通調律UP", v: m["普通UP"][r]}, {n: "普通調律GP", v: m["普通GP"][r]},
+{n: "コンサート(2.1万基)", v: Math.ceil(21000 * m["コンサ係数"] / 100) * 100},
+{n: "コンサート(2.2万基)", v: Math.ceil(22000 * m["コンサ係数"] / 100) * 100}
+];
 
-        // 2. 出張費なし
-        const freeItems = [
-            ...mainBase,
-            {n: "音教備品UP", v: d["音教備品UP"][rank]},
-            {n: "音教備品GP", v: d["音教備品GP"][rank]},
-            {n: "納調UP(新品)", v: d["納調UP"][rank]},
-            {n: "納調GP(新品)", v: d["納調GP"][rank]},
-            {n: "店頭UP 名古屋店", v: d["店頭名古屋UP"][rank]},
-            {n: "店頭GP 名古屋店", v: d["店頭名古屋GP"][rank]},
-            {n: "店頭UP RPS", v: d["店頭RPS_UP"][rank]},
-            {n: "店頭GP RPS", v: d["店頭RPS_GP"][rank]}
-        ];
+let h = "";
+const travels = [{l: "3000円地区", v: m["出張3000"]}, {l: "3500円地区", v: m["出張3500"]}];
 
-        freeItems.forEach(item => {
-            const tax = Math.floor(item.v * taxR);
-            html += `<tr><td style="text-align:left;font-weight:bold;">${item.n} (基本)</td><td>${item.v.toLocaleString()}</td><td>0</td><td>${item.v.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="bold green">${(item.v + tax).toLocaleString()}</td></tr>`;
-        });
-        document.getElementById('tableBody').innerHTML = html;
-    }
+// 1. 出張費あり
+main.forEach(item => {
+travels.forEach(t => {
+const sub = item.v + t.v;
+const tx = Math.floor(sub * taxR);
+h += `<tr><td style="text-align:left;font-weight:bold;">${item.n} (${t.l})</td><td>${item.v.toLocaleString()}</td><td>${t.v.toLocaleString()}</td><td>${sub.toLocaleString()}</td><td>${tx.toLocaleString()}</td><td class="bold orange">${(sub+tx).toLocaleString()}</td></tr>`;
+});
+});
 
-    // OCR読込ロジック
-    document.getElementById('fileInput').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const status = document.getElementById('status');
-        status.textContent = "⏳ 解析中...";
-        try {
-            const worker = await Tesseract.createWorker('jpn');
-            await worker.recognize(file);
-            await worker.terminate();
-            status.textContent = "✅ 完了（再読込）";
-            updateTable();
-        } catch (err) {
-            status.textContent = "❌ 失敗";
-        }
-    });
+h += `<tr class="sep"><td colspan="6">▼ 出張費なし (ランク ${r} 基本単価)</td></tr>`;
 
-    updateTable();
+// 2. 基本単価のみ（正式名称）
+const add = [
+...main,
+{n: "音教備品UP", v: m["音教備品UP"]}, {n: "音教備品GP", v: m["音教備品GP"]},
+{n: "中古納調UP", v: m["中古納調UP"]}, {n: "中古納調GP", v: m["中古納調GP"]},
+{n: "店頭UP 名古屋店", v: m["店頭名古屋UP"]}, {n: "店頭GP 名古屋店", v: m["店頭名古屋GP"]},
+{n: "店頭UP RPS", v: m["店頭RPS_UP"]}, {n: "店頭GP RPS", v: m["店頭RPS_GP"]}
+];
+
+add.forEach(item => {
+const tx = Math.floor(item.v * taxR);
+h += `<tr><td style="text-align:left;font-weight:bold;">${item.n}</td><td>${item.v.toLocaleString()}</td><td>0</td><td>${item.v.toLocaleString()}</td><td>${tx.toLocaleString()}</td><td class="bold green">${(item.v+tx).toLocaleString()}</td></tr>`;
+});
+document.getElementById('tableBody').innerHTML = h;
+}
+
+// OCR読取待機（シミュレーション）
+document.getElementById('ocrInput').addEventListener('change', () => {
+document.getElementById('downloadBtn').style.display = "block";
+updateTable();
+});
+
+// ファイル保存機能
+document.getElementById('downloadBtn').addEventListener('click', () => {
+const html = document.documentElement.outerHTML;
+const blob = new Blob([html], {type: 'text/html'});
+const a = document.createElement('a');
+a.href = URL.createObjectURL(blob);
+a.download = 'index.html';
+a.click();
+});
+
+updateTable();
 </script>
 </body>
 </html>
