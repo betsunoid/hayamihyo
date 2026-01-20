@@ -3,52 +3,63 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025年度 演算早見表（解析機能付）</title>
+    <title>2025年度 演算早見表（カラー印刷対応）</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 0; background: #fff; color: #000; line-height: 1.2; }
+        /* --- 全体共通（画面 & 印刷） --- */
+        body { font-family: sans-serif; margin: 0; padding: 0; background: #fff; color: #000; line-height: 1.1; }
         
-        /* 操作エリア */
+        /* 色の強制指定設定 */
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
         .no-print-area { 
             padding: 12px; background: #f0f7ff; border-bottom: 2px solid #007bff;
             position: sticky; top: 0; z-index: 2000;
         }
         .controls { display: flex; flex-direction: column; gap: 10px; }
         .row { display: flex; gap: 8px; align-items: center; }
-        
-        select { padding: 10px; font-size: 16px; font-weight: bold; flex: 1; border-radius: 5px; border: 1px solid #ccc; }
-        .btn { padding: 10px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #fff; text-align: center; text-decoration: none; font-size: 14px; }
+        select { padding: 10px; font-size: 18px; font-weight: bold; flex: 1; border-radius: 5px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #fff; font-size: 14px; }
         .btn-blue { background: #007bff; }
         .btn-green { background: #28a745; }
         
-        /* テーブル設定 */
-        .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-wrapper { width: 100%; overflow-x: auto; }
         table { width: 100%; min-width: 500px; border-collapse: collapse; border: 2px solid #000; table-layout: fixed; }
         th, td { border: 1px solid #000; text-align: right; padding: 10px 5px; font-weight: bold; font-size: 15px; }
-        th { background: #333 !important; color: #fff; text-align: center; }
+        
+        /* ヘッダーとグループ名：黒地・白抜き */
+        th, .group-header { 
+            background-color: #000 !important; 
+            color: #ffffff !important; 
+            -webkit-print-color-adjust: exact;
+        }
 
-        /* 左端固定 */
         .sticky-col { 
             position: sticky; left: 0; background: #fdfdfd !important; 
             z-index: 100; text-align: left; width: 110px; font-size: 13px; 
             box-shadow: 2px 0 5px rgba(0,0,0,0.1); word-break: break-all;
         }
 
-        .group-header { background: #444 !important; color: #fff !important; text-align: left; padding: 10px; font-size: 15px; z-index: 150; position: relative; }
+        /* 画面上での色分け */
         .z-on { background-color: #eeeeee !important; }
-        .orange { color: #b33a00 !important; }
-        .green { color: #006400 !important; }
+        .orange { color: #d35400 !important; } /* 印刷で見やすいよう少し濃いオレンジ */
+        .green { color: #1e8449 !important; }  /* 印刷で見やすいよう少し濃い緑 */
 
-        /* 印刷設定 */
+        /* --- 印刷専用設定 --- */
         @media print {
             @page { size: A4 portrait; margin: 8mm 6mm; }
             .no-print-area { display: none; }
             .table-wrapper { overflow: visible; }
             table { min-width: auto; width: 100%; border: 2.5px solid #000; }
-            th, td { padding: 4px 3px; font-size: 11px; height: auto; }
-            .sticky-col { position: static; background: transparent !important; width: 35%; font-size: 11.5px; box-shadow: none; }
-            .group-header { font-size: 11.5px; padding: 5px 10px; position: static; }
-            .z-on { background-color: #cccccc !important; -webkit-print-color-adjust: exact; }
+            
+            /* 1枚に収めるためのサイズ調整 */
+            th, td { padding: 4.2px 3px; font-size: 11px; height: auto; }
+            .sticky-col { position: static; background: transparent !important; width: 32%; font-size: 11px; box-shadow: none; }
+            
+            .group-header { padding: 5px 10px; font-size: 11px; }
+            
+            /* 印刷時のゼブラ色：少しだけ濃くして白飛びを防止 */
+            .z-on { background-color: #dddddd !important; }
         }
     </style>
 </head>
@@ -58,7 +69,7 @@
     <div class="controls">
         <div class="row">
             <select id="rankSelect" onchange="updateTable()"></select>
-            <button class="btn btn-blue" onclick="window.print()">印刷</button>
+            <button class="btn btn-blue" onclick="window.print()">印刷する（A4カラー）</button>
         </div>
         <div class="row">
             <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none;" onchange="handleFile(this)">
@@ -74,9 +85,9 @@
             <tr>
                 <th style="width: 110px;">項目名</th>
                 <th>基本</th>
-                <th>出張</th>
+                <th>出張費</th>
                 <th>小計</th>
-                <th>税</th>
+                <th>消費税</th>
                 <th>合計</th>
             </tr>
         </thead>
@@ -97,7 +108,6 @@
         "学校SW": [0, 0, 0, 0, 0, 0, 0, 8935, 8935, 8935, 8935]
     };
 
-    // セレクトボックス初期化
     const sel = document.getElementById('rankSelect');
     RANKS.forEach((r, idx) => {
         const opt = document.createElement('option');
@@ -122,7 +132,7 @@
         const travels = [{l:"3,000円地域", v:2356}, {l:"3,500円地域", v:2847}, {l:"4,000円地域", v:3338}];
 
         travels.forEach(trv => {
-            html += `<tr class="group-header"><td colspan="6">【出張費 ${trv.l}】</td></tr>`;
+            html += `<tr><td colspan="6" class="group-header">【出張費 ${trv.l}】</td></tr>`;
             mainItems.forEach((item, idx) => {
                 const sub = item.v + trv.v;
                 const tax = Math.floor(sub * 0.1);
@@ -131,7 +141,7 @@
             });
         });
 
-        html += `<tr class="group-header"><td colspan="6">【出張費なし】</td></tr>`;
+        html += `<tr><td colspan="6" class="group-header">【出張費なし】</td></tr>`;
         const freeItems = [
             {n:"学校 UP", v:baseData.学校UP[i]}, {n:"学校 GP", v:baseData.学校GP[i]},
             {n:"学校 CF/S", v:baseData.学校CF[i]}, {n:"学校 SW/B", v:baseData.学校SW[i]},
@@ -150,32 +160,23 @@
         document.getElementById('tableBody').innerHTML = html;
     }
 
-    // 解析処理
     async function handleFile(input) {
         const file = input.files[0];
         if(!file) return;
         const status = document.getElementById('status');
-        status.textContent = "解析中... 少々お待ちください";
-        
+        status.textContent = "解析中...";
         try {
-            const { data: { text } } = await Tesseract.recognize(file, 'jpn', { logger: m => console.log(m) });
-            // テキストからランク（S, A, B等）を探す
+            const { data: { text } } = await Tesseract.recognize(file, 'jpn');
             const foundRank = RANKS.find(r => new RegExp(`ランク\\s*${r}|Rank\\s*${r}|^${r}$`, 'i').test(text));
             if (foundRank) {
-                const idx = RANKS.indexOf(foundRank);
-                sel.value = idx;
+                sel.value = RANKS.indexOf(foundRank);
                 updateTable();
-                status.textContent = `解析完了: ランク ${foundRank} を適用しました`;
-            } else {
-                status.textContent = "ランクが見つかりませんでした。手動で選択してください。";
-            }
-        } catch (e) {
-            status.textContent = "解析失敗。画像が鮮明か確認してください。";
-        }
+                status.textContent = `適用: ランク ${foundRank}`;
+            } else { status.textContent = "見つかりませんでした"; }
+        } catch (e) { status.textContent = "解析エラー"; }
     }
 
     updateTable();
 </script>
 </body>
 </html>
-
