@@ -2,57 +2,70 @@
 <html lang="ja">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>2025年度 演算結果一覧</title>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <title>2025年度 演算早見表（名称最適化版）</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.2; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .no-print-area { margin-bottom: 20px; background: #f0f7ff; padding: 15px; border-radius: 8px; border: 1px solid #007bff; }
-        .tool-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        select { padding: 10px; font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; }
-        h2 { margin: 0; font-size: 18px; flex-grow: 1; color: #004085; }
+        /* A4縦 1枚に収めるための設定 */
+        @page { size: A4 portrait; margin: 8mm 6mm; }
+        body { font-family: sans-serif; margin: 0; padding: 0; background: #fff; color: #000; line-height: 1.0; }
         
-        /* 表のスタイル */
-        table { width: 100%; border-collapse: collapse; border: 2px solid #444; }
-        th, td { border: 1px solid #aaa; padding: 10px 8px; text-align: right; font-size: 13px; }
-        th { background: #444 !important; color: #fff; text-align: center; }
+        /* 操作エリア */
+        .no-print-area { padding: 10px; background: #f0f7ff; border-bottom: 2px solid #007bff; display: flex; align-items: center; gap: 15px; }
+        select { padding: 6px; font-size: 18px; font-weight: bold; }
 
-        /* 【重要】縞パターン（ゼブラ模様）の復活 */
-        tbody tr:nth-child(even) { background-color: #f2f2f2 !important; }
-        tbody tr:hover { background-color: #e9ecef !important; } /* マウスを置いた時の色 */
+        /* テーブル設定：横幅一杯 */
+        table { width: 100%; border-collapse: collapse; border: 2.5px solid #000; table-layout: fixed; }
+        
+        th { 
+            background: #333 !important; color: #fff; text-align: center; 
+            padding: 6px 2px; font-size: 12px; border: 1px solid #000;
+            -webkit-print-color-adjust: exact; 
+        }
 
-        .bold { font-weight: bold; font-size: 14px; }
-        .orange { color: #d35400; }
-        .green { color: #2e7d32; }
-        .sep { background: #666 !important; color: #fff; text-align: center; font-weight: bold; font-size: 12px; }
-        .btn-print { padding: 10px 20px; background: #1e90ff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        @media print { .no-print-area { display: none; } }
+        /* 各セル：縦幅を「1枚に収まる最大」まで確保 */
+        td { 
+            border: 1px solid #000; text-align: right; 
+            padding: 4.8px 5px; /* 1枚に収まる絶妙な高さ */
+            font-weight: bold; font-size: 11.5px;
+        }
+
+        /* 項目名列を広く取り、フルネームを表示 */
+        td:first-child { text-align: left; width: 42%; font-size: 11.5px; white-space: nowrap; }
+
+        /* グループ見出し */
+        .group-header { 
+            background: #444 !important; color: #fff; text-align: left; 
+            font-size: 11.5px; padding: 5px 10px; -webkit-print-color-adjust: exact;
+        }
+
+        /* ゼブラ：グループごとにJSで切り替え */
+        .z-on { background-color: #cccccc !important; -webkit-print-color-adjust: exact; }
+
+        .orange { color: #b33a00 !important; }
+        .green { color: #006400 !important; }
+
+        @media print {
+            .no-print-area { display: none; }
+            body { transform: scale(1.0); transform-origin: top; }
+        }
     </style>
 </head>
 <body>
 
 <div class="no-print-area">
-    <div class="tool-row">
-        <h2 id="displayTitle">2025/4-2026/3 演算一覧</h2>
-        <select id="rankSelect" onchange="updateTable()"></select>
-        <button class="btn-print" onclick="window.print()">印刷 / PDF保存</button>
-    </div>
-    <div style="font-size:12px; color:#555;">
-        <strong>📄 報酬額表(PDF/画像)を読み込んで更新：</strong>
-        <input type="file" id="fileInput" accept="image/*,application/pdf">
-        <span id="status" style="margin-left:10px; font-weight:bold; color:#d35400;"></span>
-    </div>
+    <b>ランク：</b><select id="rankSelect" onchange="updateTable()"></select>
+    <button onclick="window.print()" style="padding: 6px 20px; font-weight:bold; cursor:pointer;">印刷する</button>
+    <span style="font-size:11px; color:#d00; margin-left:10px;">※背景グラフィックON / 倍率100%設定</span>
 </div>
 
-<table>
+<table id="mainTable">
     <thead>
         <tr>
-            <th style="text-align:left;">項目名 (条件)</th>
-            <th>基本 (税抜)</th>
-            <th>出張費 (税抜)</th>
-            <th>小計 (税抜)</th>
+            <th>項目名 (条件)</th>
+            <th>基本</th>
+            <th>出張費</th>
+            <th>小計</th>
             <th>消費税</th>
-            <th>総合計 (税込)</th>
+            <th>合計(税込)</th>
         </tr>
     </thead>
     <tbody id="tableBody"></tbody>
@@ -60,103 +73,72 @@
 
 <script>
     const RANKS = ["H", "G", "F", "E", "D", "C", "B", "A", "S", "SS", "SSS"];
-    
-    // 画像から抽出した報酬額データ（固定値・変動値すべて反映）
-    const masterData = {
-        "定期UP": {H:6775,G:7462,F:7855,E:8149,D:8444,C:8836,B:9425,A:9524,S:9818,SS:10113,SSS:10211},
-        "定期GP": {H:8444,G:9327,F:9818,E:10211,D:10505,C:10996,B:11684,A:11880,S:12273,SS:12567,SSS:12764},
-        "普通UP": {H:7756,G:8542,F:9033,E:9327,D:9622,C:10113,B:10702,A:10898,S:11193,SS:11487,SSS:11684},
-        "普通GP": {H:9425,G:10407,F:10996,E:11389,D:11684,C:12273,B:13058,A:13255,S:13647,SS:14040,SSS:14236},
-        "音教備品UP": {H:6382,G:6382,F:6382,E:6382,D:6382,C:6382,B:6382,A:6382,S:6382,SS:6382,SSS:6382},
-        "音教備品GP": {H:7855,G:7855,F:7855,E:7855,D:7855,C:7855,B:7855,A:7855,S:7855,SS:7855,SSS:7855},
-        "納調UP": {H:5891,G:5891,F:5891,E:5891,D:5891,C:5891,B:5891,A:5891,S:5891,SS:5891,SSS:5891},
-        "納調GP": {H:8836,G:8836,F:8836,E:8836,D:8836,C:8836,B:8836,A:8836,S:8836,SS:8836,SSS:8836},
-        "店頭名古屋UP": {H:6382,G:6382,F:6382,E:6382,D:6382,C:6382,B:6382,A:6382,S:6382,SS:6382,SSS:6382},
-        "店頭名古屋GP": {H:7953,G:7953,F:7953,E:7953,D:7953,C:7953,B:7953,A:7953,S:7953,SS:7953,SSS:7953},
-        "店頭RPS_UP": {H:6382,G:6382,F:6382,E:6382,D:6382,C:6382,B:6382,A:6382,S:6382,SS:6382,SSS:6382},
-        "店頭RPS_GP": {H:8836,G:8836,F:8836,E:8836,D:8836,C:8836,B:8836,A:8836,S:8836,SS:8836,SSS:8836},
-        "出張3000": 2356, "出張3500": 2847, "コンサ係数": 0.7658
+    const baseData = {
+        "定期UP": [6775, 7462, 7855, 8149, 8444, 8836, 9425, 9524, 9818, 10113, 10211],
+        "定期GP": [8444, 9327, 9818, 10211, 10505, 10996, 11684, 11880, 12273, 12567, 12764],
+        "普通UP": [7756, 8542, 9033, 9327, 9622, 10113, 10702, 10898, 11193, 11487, 11684],
+        "普通GP": [9425, 10407, 10996, 11389, 11684, 12273, 13058, 13255, 13647, 14040, 14236],
+        "学校UP": [4811, 4811, 4811, 4811, 5302, 5302, 5891, 5891, 5891, 5891, 5891],
+        "学校GP": [5793, 5793, 5793, 5793, 6578, 6578, 7265, 7265, 7265, 7265, 7265],
+        "学校CF": [0, 0, 0, 0, 7560, 7560, 7560, 8542, 8542, 8542, 8542],
+        "学校SW": [0, 0, 0, 0, 0, 0, 0, 8935, 8935, 8935, 8935],
+        "T3000": 2356, "T3500": 2847, "T4000": 3338, "CRATE": 0.7658
     };
 
     const sel = document.getElementById('rankSelect');
-    RANKS.forEach(r => {
+    RANKS.forEach((r, idx) => {
         const opt = document.createElement('option');
-        opt.value = r; opt.textContent = "ランク " + r;
+        opt.value = idx; opt.textContent = "ランク " + r;
         if(r === "S") opt.selected = true;
         sel.appendChild(opt);
     });
 
     function updateTable() {
-        const rank = sel.value;
-        const taxR = 0.1;
-        const d = masterData;
-        
-        // コンサート・定期・普通のベース
-        const mainBase = [
-            {n: "定期UP", v: d["定期UP"][rank]},
-            {n: "定期GP", v: d["定期GP"][rank]},
-            {n: "普通UP", v: d["普通UP"][rank]},
-            {n: "普通GP", v: d["普通GP"][rank]},
-            {n: "コンサート (2.1万基)", v: Math.ceil(21000 * d["コンサ係数"] / 100) * 100},
-            {n: "コンサート (2.2万基)", v: Math.ceil(22000 * d["コンサ係数"] / 100) * 100}
+        const i = parseInt(sel.value);
+        let h = "";
+        const c21 = Math.ceil(21000 * baseData.CRATE / 100) * 100;
+        const c22 = Math.ceil(22000 * baseData.CRATE / 100) * 100;
+
+        const mainItems = [
+            {n:"定期UP", v:baseData.定期UP[i]}, {n:"定期GP", v:baseData.定期GP[i]},
+            {n:"普通UP", v:baseData.普通UP[i]}, {n:"普通GP", v:baseData.普通GP[i]},
+            {n:"コンサート21000", v:c21}, {n:"コンサート22000", v:c22}
         ];
 
-        let html = "";
-        const travels = [{l: "3000地域", v: d["出張3000"]}, {l: "3500地域", v: d["出張3500"]}];
-        
-        // 1. 出張費あり
-        mainBase.forEach(item => {
-            travels.forEach(trv => {
+        // 出張費グループ (3000/3500/4000)
+        [{l:"3,000円地域",v:baseData.T3000}, {l:"3,500円地域",v:baseData.T3500}, {l:"4,000円地域",v:baseData.T4000}].forEach(trv => {
+            h += `<tr class="group-header"><td colspan="6">【出張費 ${trv.l}】</td></tr>`;
+            mainItems.forEach((item, idx) => {
                 const sub = item.v + trv.v;
-                const tax = Math.floor(sub * taxR);
-                html += `<tr><td style="text-align:left;font-weight:bold;">${item.n} (${trv.l})</td><td>${item.v.toLocaleString()}</td><td>${trv.v.toLocaleString()}</td><td>${sub.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="bold orange">${(sub + tax).toLocaleString()}</td></tr>`;
+                const tax = Math.floor(sub * 0.1);
+                const zebra = (idx % 2 === 1) ? "z-on" : "";
+                h += `<tr class="${zebra}"><td>${item.n}</td><td>${item.v.toLocaleString()}</td><td>${trv.v.toLocaleString()}</td><td>${sub.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="orange">${(sub+tax).toLocaleString()}</td></tr>`;
             });
         });
 
-        html += `<tr class="sep"><td colspan="6">▼ 出張費なし (追加項目含む)</td></tr>`;
-
-        // 2. 出張費なし
+        // 出張費なし
+        h += `<tr class="group-header"><td colspan="6">【出張費なし】</td></tr>`;
         const freeItems = [
-            ...mainBase,
-            {n: "音教備品UP", v: d["音教備品UP"][rank]},
-            {n: "音教備品GP", v: d["音教備品GP"][rank]},
-            {n: "納調UP", v: d["納調UP"][rank]},
-            {n: "納調GP", v: d["納調GP"][rank]},
-            {n: "店頭UP 名古屋店", v: d["店頭名古屋UP"][rank]},
-            {n: "店頭GP 名古屋店", v: d["店頭名古屋GP"][rank]},
-            {n: "店頭UP RPS", v: d["店頭RPS_UP"][rank]},
-            {n: "店頭GP RPS", v: d["店頭RPS_GP"][rank]}
-        ];
+            {n:"学校 UP", v:baseData.学校UP[i]}, {n:"学校 GP", v:baseData.学校GP[i]},
+            {n:"学校 CF/S", v:baseData.学校CF[i]}, {n:"学校 SW/B", v:baseData.学校SW[i]},
+            ...mainItems,
+            {n:"音教備品UP", v:6382}, {n:"音教備品GP", v:7855},
+            {n:"納調 UP", v:5891}, {n:"納調 GP", v:8836},
+            {n:"店頭 名古屋UP", v:6382}, {n:"店頭 名古屋GP", v:7953},
+            {n:"店頭 RPS UP", v:6382}, {n:"店頭 RPS GP", v:8836}
+        ].filter(x => x.v > 0);
 
-        freeItems.forEach(item => {
-            const tax = Math.floor(item.v * taxR);
-            html += `<tr><td style="text-align:left;font-weight:bold;">${item.n} (基本)</td><td>${item.v.toLocaleString()}</td><td>0</td><td>${item.v.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="bold green">${(item.v + tax).toLocaleString()}</td></tr>`;
+        freeItems.forEach((item, idx) => {
+            const tax = Math.floor(item.v * 0.1);
+            const zebra = (idx % 2 === 1) ? "z-on" : "";
+            h += `<tr class="${zebra}"><td>${item.n}</td><td>${item.v.toLocaleString()}</td><td>0</td><td>${item.v.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="green">${(item.v+tax).toLocaleString()}</td></tr>`;
         });
-        document.getElementById('tableBody').innerHTML = html;
+
+        document.getElementById('tableBody').innerHTML = h;
     }
-
-    // OCR読込ロジック
-    document.getElementById('fileInput').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const status = document.getElementById('status');
-        status.textContent = "⏳ 解析中...";
-        try {
-            const worker = await Tesseract.createWorker('jpn');
-            await worker.recognize(file);
-            await worker.terminate();
-            status.textContent = "✅ 完了（再読込）";
-            updateTable();
-        } catch (err) {
-            status.textContent = "❌ 失敗";
-        }
-    });
-
     updateTable();
 </script>
 </body>
 </html>
-
-
 
 
