@@ -2,74 +2,87 @@
 <html lang="ja">
 <head>
     <meta charset="utf-8">
-    <title>2025年度 演算早見表（名称最適化版）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025年度 演算早見表（解析機能付）</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        /* A4縦 1枚に収めるための設定 */
-        @page { size: A4 portrait; margin: 8mm 6mm; }
-        body { font-family: sans-serif; margin: 0; padding: 0; background: #fff; color: #000; line-height: 1.0; }
+        body { font-family: sans-serif; margin: 0; padding: 0; background: #fff; color: #000; line-height: 1.2; }
         
         /* 操作エリア */
-        .no-print-area { padding: 10px; background: #f0f7ff; border-bottom: 2px solid #007bff; display: flex; align-items: center; gap: 15px; }
-        select { padding: 6px; font-size: 18px; font-weight: bold; }
-
-        /* テーブル設定：横幅一杯 */
-        table { width: 100%; border-collapse: collapse; border: 2.5px solid #000; table-layout: fixed; }
+        .no-print-area { 
+            padding: 12px; background: #f0f7ff; border-bottom: 2px solid #007bff;
+            position: sticky; top: 0; z-index: 2000;
+        }
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        .row { display: flex; gap: 8px; align-items: center; }
         
-        th { 
-            background: #333 !important; color: #fff; text-align: center; 
-            padding: 6px 2px; font-size: 12px; border: 1px solid #000;
-            -webkit-print-color-adjust: exact; 
+        select { padding: 10px; font-size: 16px; font-weight: bold; flex: 1; border-radius: 5px; border: 1px solid #ccc; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #fff; text-align: center; text-decoration: none; font-size: 14px; }
+        .btn-blue { background: #007bff; }
+        .btn-green { background: #28a745; }
+        
+        /* テーブル設定 */
+        .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; min-width: 500px; border-collapse: collapse; border: 2px solid #000; table-layout: fixed; }
+        th, td { border: 1px solid #000; text-align: right; padding: 10px 5px; font-weight: bold; font-size: 15px; }
+        th { background: #333 !important; color: #fff; text-align: center; }
+
+        /* 左端固定 */
+        .sticky-col { 
+            position: sticky; left: 0; background: #fdfdfd !important; 
+            z-index: 100; text-align: left; width: 110px; font-size: 13px; 
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1); word-break: break-all;
         }
 
-        /* 各セル：縦幅を「1枚に収まる最大」まで確保 */
-        td { 
-            border: 1px solid #000; text-align: right; 
-            padding: 4.8px 5px; /* 1枚に収まる絶妙な高さ */
-            font-weight: bold; font-size: 11.5px;
-        }
-
-        /* 項目名列を広く取り、フルネームを表示 */
-        td:first-child { text-align: left; width: 42%; font-size: 11.5px; white-space: nowrap; }
-
-        /* グループ見出し */
-        .group-header { 
-            background: #444 !important; color: #fff; text-align: left; 
-            font-size: 11.5px; padding: 5px 10px; -webkit-print-color-adjust: exact;
-        }
-
-        /* ゼブラ：グループごとにJSで切り替え */
-        .z-on { background-color: #cccccc !important; -webkit-print-color-adjust: exact; }
-
+        .group-header { background: #444 !important; color: #fff !important; text-align: left; padding: 10px; font-size: 15px; z-index: 150; position: relative; }
+        .z-on { background-color: #eeeeee !important; }
         .orange { color: #b33a00 !important; }
         .green { color: #006400 !important; }
 
+        /* 印刷設定 */
         @media print {
+            @page { size: A4 portrait; margin: 8mm 6mm; }
             .no-print-area { display: none; }
-            body { transform: scale(1.0); transform-origin: top; }
+            .table-wrapper { overflow: visible; }
+            table { min-width: auto; width: 100%; border: 2.5px solid #000; }
+            th, td { padding: 4px 3px; font-size: 11px; height: auto; }
+            .sticky-col { position: static; background: transparent !important; width: 35%; font-size: 11.5px; box-shadow: none; }
+            .group-header { font-size: 11.5px; padding: 5px 10px; position: static; }
+            .z-on { background-color: #cccccc !important; -webkit-print-color-adjust: exact; }
         }
     </style>
 </head>
 <body>
 
 <div class="no-print-area">
-    <b>ランク：</b><select id="rankSelect" onchange="updateTable()"></select>
-    <button onclick="window.print()" style="padding: 6px 20px; font-weight:bold; cursor:pointer;">印刷する</button>
-    <span style="font-size:11px; color:#d00; margin-left:10px;">※背景グラフィックON / 倍率100%設定</span>
+    <div class="controls">
+        <div class="row">
+            <select id="rankSelect" onchange="updateTable()"></select>
+            <button class="btn btn-blue" onclick="window.print()">印刷</button>
+        </div>
+        <div class="row">
+            <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none;" onchange="handleFile(this)">
+            <button class="btn btn-green" style="width:100%;" onclick="document.getElementById('fileInput').click()">📷 画像・PDFから読み込み</button>
+        </div>
+        <div id="status" style="font-size:12px; color:#666;"></div>
+    </div>
 </div>
 
-<table id="mainTable">
-    <thead>
-        <tr>
-            <th>項目名 (条件)</th>
-            <th>基本</th>
-            <th>出張費</th>
-            <th>小計</th>
-            <th>消費税</th>
-            <th>合計(税込)</th>
-        </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-</table>
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 110px;">項目名</th>
+                <th>基本</th>
+                <th>出張</th>
+                <th>小計</th>
+                <th>税</th>
+                <th>合計</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
 
 <script>
     const RANKS = ["H", "G", "F", "E", "D", "C", "B", "A", "S", "SS", "SSS"];
@@ -81,10 +94,10 @@
         "学校UP": [4811, 4811, 4811, 4811, 5302, 5302, 5891, 5891, 5891, 5891, 5891],
         "学校GP": [5793, 5793, 5793, 5793, 6578, 6578, 7265, 7265, 7265, 7265, 7265],
         "学校CF": [0, 0, 0, 0, 7560, 7560, 7560, 8542, 8542, 8542, 8542],
-        "学校SW": [0, 0, 0, 0, 0, 0, 0, 8935, 8935, 8935, 8935],
-        "T3000": 2356, "T3500": 2847, "T4000": 3338, "CRATE": 0.7658
+        "学校SW": [0, 0, 0, 0, 0, 0, 0, 8935, 8935, 8935, 8935]
     };
 
+    // セレクトボックス初期化
     const sel = document.getElementById('rankSelect');
     RANKS.forEach((r, idx) => {
         const opt = document.createElement('option');
@@ -95,9 +108,9 @@
 
     function updateTable() {
         const i = parseInt(sel.value);
-        let h = "";
-        const c21 = Math.ceil(21000 * baseData.CRATE / 100) * 100;
-        const c22 = Math.ceil(22000 * baseData.CRATE / 100) * 100;
+        const conRate = 0.7658;
+        const c21 = Math.ceil(21000 * conRate / 100) * 100;
+        const c22 = Math.ceil(22000 * conRate / 100) * 100;
 
         const mainItems = [
             {n:"定期UP", v:baseData.定期UP[i]}, {n:"定期GP", v:baseData.定期GP[i]},
@@ -105,19 +118,20 @@
             {n:"コンサート21000", v:c21}, {n:"コンサート22000", v:c22}
         ];
 
-        // 出張費グループ (3000/3500/4000)
-        [{l:"3,000円地域",v:baseData.T3000}, {l:"3,500円地域",v:baseData.T3500}, {l:"4,000円地域",v:baseData.T4000}].forEach(trv => {
-            h += `<tr class="group-header"><td colspan="6">【出張費 ${trv.l}】</td></tr>`;
+        let html = "";
+        const travels = [{l:"3,000円地域", v:2356}, {l:"3,500円地域", v:2847}, {l:"4,000円地域", v:3338}];
+
+        travels.forEach(trv => {
+            html += `<tr class="group-header"><td colspan="6">【出張費 ${trv.l}】</td></tr>`;
             mainItems.forEach((item, idx) => {
                 const sub = item.v + trv.v;
                 const tax = Math.floor(sub * 0.1);
                 const zebra = (idx % 2 === 1) ? "z-on" : "";
-                h += `<tr class="${zebra}"><td>${item.n}</td><td>${item.v.toLocaleString()}</td><td>${trv.v.toLocaleString()}</td><td>${sub.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="orange">${(sub+tax).toLocaleString()}</td></tr>`;
+                html += `<tr class="${zebra}"><td class="sticky-col">${item.n}</td><td>${item.v.toLocaleString()}</td><td>${trv.v.toLocaleString()}</td><td>${sub.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="orange">${(sub+tax).toLocaleString()}</td></tr>`;
             });
         });
 
-        // 出張費なし
-        h += `<tr class="group-header"><td colspan="6">【出張費なし】</td></tr>`;
+        html += `<tr class="group-header"><td colspan="6">【出張費なし】</td></tr>`;
         const freeItems = [
             {n:"学校 UP", v:baseData.学校UP[i]}, {n:"学校 GP", v:baseData.学校GP[i]},
             {n:"学校 CF/S", v:baseData.学校CF[i]}, {n:"学校 SW/B", v:baseData.学校SW[i]},
@@ -131,14 +145,37 @@
         freeItems.forEach((item, idx) => {
             const tax = Math.floor(item.v * 0.1);
             const zebra = (idx % 2 === 1) ? "z-on" : "";
-            h += `<tr class="${zebra}"><td>${item.n}</td><td>${item.v.toLocaleString()}</td><td>0</td><td>${item.v.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="green">${(item.v+tax).toLocaleString()}</td></tr>`;
+            html += `<tr class="${zebra}"><td class="sticky-col">${item.n}</td><td>${item.v.toLocaleString()}</td><td>0</td><td>${item.v.toLocaleString()}</td><td>${tax.toLocaleString()}</td><td class="green">${(item.v+tax).toLocaleString()}</td></tr>`;
         });
-
-        document.getElementById('tableBody').innerHTML = h;
+        document.getElementById('tableBody').innerHTML = html;
     }
+
+    // 解析処理
+    async function handleFile(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const status = document.getElementById('status');
+        status.textContent = "解析中... 少々お待ちください";
+        
+        try {
+            const { data: { text } } = await Tesseract.recognize(file, 'jpn', { logger: m => console.log(m) });
+            // テキストからランク（S, A, B等）を探す
+            const foundRank = RANKS.find(r => new RegExp(`ランク\\s*${r}|Rank\\s*${r}|^${r}$`, 'i').test(text));
+            if (foundRank) {
+                const idx = RANKS.indexOf(foundRank);
+                sel.value = idx;
+                updateTable();
+                status.textContent = `解析完了: ランク ${foundRank} を適用しました`;
+            } else {
+                status.textContent = "ランクが見つかりませんでした。手動で選択してください。";
+            }
+        } catch (e) {
+            status.textContent = "解析失敗。画像が鮮明か確認してください。";
+        }
+    }
+
     updateTable();
 </script>
 </body>
 </html>
-
 
