@@ -3,15 +3,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025年度 演算早見表（カラー印刷対応）</title>
+    <title>2025年度 汎用演算早見表</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        /* --- 全体共通（画面 & 印刷） --- */
+        /* --- 全体共通 --- */
         body { font-family: sans-serif; margin: 0; padding: 0; background: #fff; color: #000; line-height: 1.1; }
-        
-        /* 色の強制指定設定 */
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
+        /* 印刷タイトル */
+        .print-title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px 0;
+            border-bottom: 2px solid #000;
+            padding-bottom: 5px;
+        }
+
+        /* 操作エリア */
         .no-print-area { 
             padding: 12px; background: #f0f7ff; border-bottom: 2px solid #007bff;
             position: sticky; top: 0; z-index: 2000;
@@ -23,15 +32,14 @@
         .btn-blue { background: #007bff; }
         .btn-green { background: #28a745; }
         
+        /* テーブル設定 */
         .table-wrapper { width: 100%; overflow-x: auto; }
         table { width: 100%; min-width: 500px; border-collapse: collapse; border: 2px solid #000; table-layout: fixed; }
         th, td { border: 1px solid #000; text-align: right; padding: 10px 5px; font-weight: bold; font-size: 15px; }
         
-        /* ヘッダーとグループ名：黒地・白抜き */
         th, .group-header { 
             background-color: #000 !important; 
             color: #ffffff !important; 
-            -webkit-print-color-adjust: exact;
         }
 
         .sticky-col { 
@@ -40,25 +48,20 @@
             box-shadow: 2px 0 5px rgba(0,0,0,0.1); word-break: break-all;
         }
 
-        /* 画面上での色分け */
         .z-on { background-color: #eeeeee !important; }
-        .orange { color: #d35400 !important; } /* 印刷で見やすいよう少し濃いオレンジ */
-        .green { color: #1e8449 !important; }  /* 印刷で見やすいよう少し濃い緑 */
+        .orange { color: #d35400 !important; }
+        .green { color: #1e8449 !important; }
 
         /* --- 印刷専用設定 --- */
         @media print {
-            @page { size: A4 portrait; margin: 8mm 6mm; }
+            @page { size: A4 portrait; margin: 5mm 6mm; }
             .no-print-area { display: none; }
+            .print-title { font-size: 18px; margin: 5px 0 10px 0; }
             .table-wrapper { overflow: visible; }
             table { min-width: auto; width: 100%; border: 2.5px solid #000; }
-            
-            /* 1枚に収めるためのサイズ調整 */
-            th, td { padding: 4.2px 3px; font-size: 11px; height: auto; }
-            .sticky-col { position: static; background: transparent !important; width: 32%; font-size: 11px; box-shadow: none; }
-            
-            .group-header { padding: 5px 10px; font-size: 11px; }
-            
-            /* 印刷時のゼブラ色：少しだけ濃くして白飛びを防止 */
+            th, td { padding: 4px 3px; font-size: 10.6px; height: auto; }
+            .sticky-col { position: static; background: transparent !important; width: 32%; font-size: 10.6px; box-shadow: none; }
+            .group-header { padding: 5px 10px; font-size: 10.6px; }
             .z-on { background-color: #dddddd !important; }
         }
     </style>
@@ -69,7 +72,7 @@
     <div class="controls">
         <div class="row">
             <select id="rankSelect" onchange="updateTable()"></select>
-            <button class="btn btn-blue" onclick="window.print()">印刷する（A4カラー）</button>
+            <button class="btn btn-blue" onclick="window.print()">印刷する</button>
         </div>
         <div class="row">
             <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none;" onchange="handleFile(this)">
@@ -78,6 +81,8 @@
         <div id="status" style="font-size:12px; color:#666;"></div>
     </div>
 </div>
+
+<div class="print-title" id="displayTitle">2025年度 ランクS 汎用演算早見表</div>
 
 <div class="table-wrapper">
     <table>
@@ -109,6 +114,8 @@
     };
 
     const sel = document.getElementById('rankSelect');
+    const displayTitle = document.getElementById('displayTitle');
+
     RANKS.forEach((r, idx) => {
         const opt = document.createElement('option');
         opt.value = idx; opt.textContent = "ランク " + r;
@@ -118,6 +125,11 @@
 
     function updateTable() {
         const i = parseInt(sel.value);
+        const currentRankName = RANKS[i];
+        
+        // タイトルを「汎用」入りで更新
+        displayTitle.textContent = `2025年度 ランク${currentRankName} 汎用演算早見表`;
+
         const conRate = 0.7658;
         const c21 = Math.ceil(21000 * conRate / 100) * 100;
         const c22 = Math.ceil(22000 * conRate / 100) * 100;
